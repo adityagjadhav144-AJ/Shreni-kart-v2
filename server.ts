@@ -2,7 +2,6 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
-import { createServer as createViteServer } from "vite";
 
 dotenv.config();
 
@@ -11,6 +10,14 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+// Normalize request path for Vercel serverless rewrites
+app.use((req, _res, next) => {
+  if (req.url && !req.url.startsWith("/api") && !req.url.startsWith("/health") && !req.url.startsWith("/favicon")) {
+    req.url = `/api${req.url.startsWith("/") ? "" : "/"}${req.url}`;
+  }
+  next();
+});
 
 // In-memory persistent Bazaar storage
 interface BazaarProduct {
@@ -1011,6 +1018,7 @@ app.get("/api/health", (_req, res) => {
 // Start server with Vite middleware in dev or static files in production
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true, hmr: false },
       appType: "spa",
@@ -1029,4 +1037,10 @@ async function startServer() {
   });
 }
 
-startServer();
+export default app;
+export { app };
+
+// Only start standalone HTTP listener when not in Vercel serverless environment
+if (!process.env.VERCEL) {
+  startServer();
+}

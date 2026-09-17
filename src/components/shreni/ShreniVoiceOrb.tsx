@@ -2,6 +2,7 @@ import React from "react";
 import { Mic, MicOff, Sparkles, Volume2 } from "lucide-react";
 import { useShreni } from "@/context/ShreniContext";
 import { cn } from "@/lib/utils";
+import { unlockMobileAudioAndSpeech } from "@/lib/shreni-assistant";
 
 export function ShreniVoiceOrb({
   variant = "floating",
@@ -22,6 +23,7 @@ export function ShreniVoiceOrb({
   } = useShreni();
 
   function handleClick() {
+    unlockMobileAudioAndSpeech();
     if (status === "active_listening" || status === "wake_listening") {
       stopListening();
     } else {
@@ -130,6 +132,7 @@ export function ShreniVoiceOrb({
       <button
         type="button"
         onClick={() => {
+          unlockMobileAudioAndSpeech();
           setAssistantPanelOpen(true);
           void startListening("active");
         }}

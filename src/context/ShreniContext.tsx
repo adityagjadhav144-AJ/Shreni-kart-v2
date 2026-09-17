@@ -14,6 +14,8 @@ import {
   type ShreniStatus,
   speakText,
   stopSpeaking,
+  unlockMobileAudioAndSpeech,
+  generateClientFallbackResponse,
 } from "@/lib/shreni-assistant";
 
 interface ShreniContextType {
@@ -114,7 +116,7 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
     setLastSpokenText(txt);
   };
 
-  // Helper to match "Namaste Shreni" and all phonetic/multilingual variants
+  // Helper to match "Namaste Shreni" and all phonetic/multilingual variants on mobile and desktop
   function matchWakeWord(text: string): { matched: boolean; remainder: string } {
     if (!text || !text.trim()) return { matched: false, remainder: "" };
 
@@ -128,11 +130,10 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
     if (!normalized) return { matched: false, remainder: "" };
 
     // 1. English / Hinglish wake patterns
-    // Greetings: namaste, namaskar, namashkar, namaskaar, namasthe, pranam, hello, hey, hi, ok, listen, suno
-    // Names: shreni, sreni, shrenee, shreney, shrene, shreena, shree, shreee, sheni, sherni, shaini, shani, shreya, shrey, shaili, chreni
+    // Common mobile speech recognition transcriptions for Indian speakers:
     const engPatterns = [
-      /\b(?:namaste|namaskar|namashkar|namaskaar|namasthe|pranam|hello|hey|hi|ok|listen|suno)\s+(?:shreni|sreni|shrenee|shreney|shrene|shreena|shree|shreee|sheni|sherni|shaini|shani|shreya|shrey|shaili|chreni)\b/i,
-      /\b(?:shreni|sreni|shrenee|shreney|shrene|shreena)\b/i,
+      /\b(?:namaste|namaskar|namashkar|namaskaar|namasthe|pranam|hello|hey|hi|ok|listen|suno)\s+(?:shreni|sreni|shrenee|shreney|shrene|shreena|shree|shreee|sheni|sherni|sherani|sharni|shaini|shani|shreya|shrey|shaili|chreni|sreny)\b/i,
+      /\b(?:shreni|sreni|shrenee|shreney|shrene|shreena|sherani)\b/i,
     ];
 
     // 2. Indic script wake patterns (Devanagari, Bengali, Gujarati, Tamil, Telugu, Kannada, Malayalam)
@@ -185,34 +186,49 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // 1. Automatically start continuous wake-word listening whenever the app opens
+    // 1. Automatically start continuous wake-word listening
     console.log("[Shreni AI] Initializing continuous wake-word listening on app startup...");
     void startListening("wake");
 
-    // 2. Also register universal interaction triggers to ensure continuous listening is active
-    // in environments that restrict speech APIs prior to user interaction
-    const ensureContinuousListening = () => {
+    // 2. Register mobile user interaction triggers:
+    // Primes mobile SpeechSynthesis/AudioContext and ensures listening is active
+    const handleUserInteraction = () => {
+      unlockMobileAudioAndSpeech();
       if (
         !isRecognitionRunningRef.current &&
         statusRef.current !== "speaking" &&
         statusRef.current !== "processing"
       ) {
-        console.log("[Shreni AI] Ensuring continuous background listening active on user interaction");
+        console.log("[Shreni AI] User interaction detected: unlocking audio and starting wake listener");
         void startListening("wake");
-      }
-      if (!mediaStreamRef.current) {
-        void initHardwareAudio().catch(() => {});
       }
     };
 
-    window.addEventListener("click", ensureContinuousListening, { passive: true });
-    window.addEventListener("touchstart", ensureContinuousListening, { passive: true });
-    window.addEventListener("keydown", ensureContinuousListening, { passive: true });
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        if (
+          !isRecognitionRunningRef.current &&
+          statusRef.current !== "speaking" &&
+          statusRef.current !== "processing"
+        ) {
+          console.log("[Shreni AI] App returned to foreground: resuming wake-word listener");
+          void startListening("wake");
+        }
+      }
+    };
+
+    window.addEventListener("click", handleUserInteraction, { passive: true });
+    window.addEventListener("touchstart", handleUserInteraction, { passive: true });
+    window.addEventListener("pointerdown", handleUserInteraction, { passive: true });
+    window.addEventListener("keydown", handleUserInteraction, { passive: true });
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("click", ensureContinuousListening);
-      window.removeEventListener("touchstart", ensureContinuousListening);
-      window.removeEventListener("keydown", ensureContinuousListening);
+      window.removeEventListener("click", handleUserInteraction);
+      window.removeEventListener("touchstart", handleUserInteraction);
+      window.removeEventListener("pointerdown", handleUserInteraction);
+      window.removeEventListener("keydown", handleUserInteraction);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
@@ -289,8 +305,10 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
     updateStatus(mode === "wake" ? "wake_listening" : "active_listening");
     setLiveTranscript("");
 
-    // Initialize hardware mic in background without blocking SpeechRecognition
-    void initHardwareAudio().catch(() => {});
+    // Only initialize hardware mic audio analyser in active mode to prevent mic collision on mobile devices
+    if (mode === "active") {
+      void initHardwareAudio().catch(() => {});
+    }
 
     const SpeechRec =
       typeof window !== "undefined"
@@ -305,12 +323,12 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
 
     setIsSpeechSupported(true);
 
-    // If already running in the requested mode, do not restart
+    // If already running in the requested mode, avoid duplicate startup
     if (recognitionRef.current && isRecognitionRunningRef.current && activeModeRef.current === mode) {
       return;
     }
 
-    // Stop and clean up existing instance to prevent duplicate handlers and zombie restarts
+    // Clean up existing instance before recreating
     if (recognitionRef.current) {
       try {
         recognitionRef.current.onstart = null;
@@ -338,7 +356,7 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
         isRecognitionRunningRef.current = true;
         setMicPermissionState("granted");
         console.log(
-          "[Shreni Speech] Started continuous listening in mode:",
+          "[Shreni Speech] Active listening session started. Mode:",
           activeModeRef.current,
           "lang:",
           recognition.lang
@@ -459,18 +477,27 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
 
       recognition.onerror = (e: any) => {
         console.warn("[Recognition Error Event]", e.error);
-        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-          isRecognitionRunningRef.current = false;
-          setMicPermissionState("denied");
-        } else if (e.error === "no-speech") {
-          // Normal when quiet; will restart automatically in onend
-        } else if (e.error === "aborted") {
-          isRecognitionRunningRef.current = false;
+        isRecognitionRunningRef.current = false;
+        if (e.error === "not-allowed") {
+          // On mobile, not-allowed prior to user interaction is standard browser policy.
+          // Do not mark permanent denial — user interaction will unlock it.
+          setMicPermissionState("prompt");
+        } else if (e.error === "service-not-allowed" || e.error === "network") {
+          // Mobile Chrome service reset: schedule a quick restart
+          setTimeout(() => {
+            if (shouldListenRef.current && statusRef.current !== "speaking" && statusRef.current !== "processing") {
+              void startListening(activeModeRef.current);
+            }
+          }, 600);
         }
       };
 
       recognition.onend = () => {
         isRecognitionRunningRef.current = false;
+        // Clean old reference so subsequent call doesn't throw InvalidStateError
+        if (recognitionRef.current === recognition) {
+          recognitionRef.current = null;
+        }
         console.log(
           "[Recognition onend] shouldListen:",
           shouldListenRef.current,
@@ -482,7 +509,7 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
           statusRef.current !== "speaking" &&
           statusRef.current !== "processing"
         ) {
-          // Keep continuous wake listening permanently active
+          // Restart clean instance with 300ms pause for mobile audio HAL
           setTimeout(() => {
             if (
               shouldListenRef.current &&
@@ -490,14 +517,9 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
               statusRef.current !== "speaking" &&
               statusRef.current !== "processing"
             ) {
-              try {
-                recognition.start();
-              } catch (err) {
-                console.log("[Recognition restart notice, starting fresh]", err);
-                void startListening(activeModeRef.current);
-              }
+              void startListening(activeModeRef.current);
             }
-          }, 150);
+          }, 300);
         }
       };
 
@@ -583,22 +605,43 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
             window.localStorage.getItem("shreni-language"))) ||
         "en";
 
-      const res = await fetch("/api/shreni/assistant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userText,
-          image,
-          lastAssistantOutput: lastSpokenTextRef.current,
-          activated: true,
-          flowStep,
-          craftContext,
-          preferredLang: currentSavedLang,
-          history: messages.map((m) => ({ role: m.role, text: m.text })),
-        }),
-      });
+      // 7-second timeout for serverless responses on cellular mobile
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        const res = await fetch("/api/shreni/assistant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            message: userText,
+            image,
+            lastAssistantOutput: lastSpokenTextRef.current,
+            activated: true,
+            flowStep,
+            craftContext,
+            preferredLang: currentSavedLang,
+            history: messages.map((m) => ({ role: m.role, text: m.text })),
+          }),
+        });
+
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          data = await res.json();
+        } else {
+          console.warn("[Shreni API non-200 response, activating client fallback]", res.status);
+        }
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        console.warn("[Shreni API fetch timeout or offline, activating client fallback]", fetchErr);
+      }
+
+      // If backend was unreachable, timed out, or returned an error, seamlessly use client fallback
+      if (!data || !data.text) {
+        data = generateClientFallbackResponse(userText, currentSavedLang);
+      }
 
       if (data.echoIgnored) {
         updateStatus(shouldListenRef.current ? "active_listening" : "idle");
@@ -662,7 +705,7 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
               if (statusRef.current !== "speaking" && !isRecognitionRunningRef.current) {
                 void startListening("active");
               }
-            }, 150);
+            }, 250);
           },
           currentSavedLang
         );
@@ -674,21 +717,13 @@ export function ShreniProvider({ children }: { children: ReactNode }) {
           if (!isRecognitionRunningRef.current) {
             void startListening("active");
           }
-        }, 150);
+        }, 200);
       }
-    } catch (err: any) {
-      console.error("[Shreni API error]", err);
-      toast.error("Could not reach Shreni AI. Please check your connection.");
-      shouldListenRef.current = true;
-      activeModeRef.current = "wake";
-      updateStatus("wake_listening");
-      setTimeout(() => {
-        if (recognitionRef.current) {
-          try {
-            recognitionRef.current.start();
-          } catch {}
-        }
-      }, 500);
+    } catch (unexpectedErr: any) {
+      console.error("[Shreni API error]", unexpectedErr);
+      const fallback = generateClientFallbackResponse(userText, "en");
+      updateStatus("speaking");
+      speakText(fallback.text);
     }
   }
 
