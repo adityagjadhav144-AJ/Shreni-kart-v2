@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>ShreniKart — Artisan Craft PWA</title>
+    <meta name="description" content="ShreniKart — Empowering Artisans with Shreni AI, a supportive multilingual voice assistant for smart product onboarding and craft commerce." />
+    <meta property="og:title" content="ShreniKart — Artisan Craft PWA" />
+    <meta property="og:description" content="ShreniKart — Empowering Artisans with Shreni AI, a supportive multilingual voice assistant for smart product onboarding and craft commerce." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0f294a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ShreniKart" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Stealth Native Translation Element -->
+    <div id="google_translate_element" style="display:none;position:absolute;top:-9999px;left:-9999px;"></div>
+    <script type="text/javascript">
+      window.googleTranslateElementInit = function () {
+        try {
+          if (window.google && window.google.translate) {
+            new window.google.translate.TranslateElement(
+              {
+                pageLanguage: 'en',
+                includedLanguages: 'as,bn,bho,brx,doi,en,gom,gu,hi,kn,ks,mai,ml,mni-Mtei,mr,ne,or,pa,sa,sat,sd,ta,te,ur',
+                autoDisplay: false,
+                multilanguagePage: true,
+              },
+              'google_translate_element'
+            );
+          }
+        } catch (e) {
+          /* Silent background handler */
+        }
+      };
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async defer></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

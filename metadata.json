@@ -1,0 +1,6 @@
+{
+  "name": "ShreniKart",
+  "description": "ShreniKart PWA — Empowering Artisans with Shreni AI, a supportive multilingual voice assistant for smart product onboarding and craft commerce.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

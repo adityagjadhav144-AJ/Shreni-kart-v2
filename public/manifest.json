@@ -1,0 +1,70 @@
+{
+  "id": "/",
+  "name": "ShreniKart — Artisan Craft PWA",
+  "short_name": "ShreniKart",
+  "description": "ShreniKart PWA: Multilingual voice assistant and craft commerce app for Indian artisans.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#0f294a",
+  "theme_color": "#0f294a",
+  "categories": ["shopping", "business", "utilities"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Shreni AI Voice",
+      "short_name": "Voice AI",
+      "description": "Speak with Shreni AI voice assistant",
+      "url": "/voice",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Shreni Bazaar",
+      "short_name": "Bazaar",
+      "description": "Browse artisan products and listings",
+      "url": "/dashboard",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Add Craft",
+      "short_name": "Add Craft",
+      "description": "Photograph and list a new handcrafted product",
+      "url": "/add-product",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Orders",
+      "short_name": "Orders",
+      "description": "Track buyer orders and deliveries",
+      "url": "/orders",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}
